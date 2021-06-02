@@ -16,8 +16,14 @@ contract StakeBitDiamond is Ownable {
     mapping(address => bool) public isStakerPresent;
     mapping(address => uint256) public stakeOf;
     mapping(address => uint256) public stakedAt;
+    mapping(address => uint256) public stakeAmountForLastOneWeek;
+    mapping(address => uint256) public stakeAmountForLastTwoWeeks;
+    mapping(address => uint256) public stakeAmountForLastThreeWeeks;
 
     uint256 public totalBTDMDStaked;
+
+    event Stake(address indexed staker, uint256 amount, uint256 stakedAt);
+    event UnStake(address indexed unStaker, uint256 amount, uint256 unStakedAt);
 
     /**
      * @dev Contract might receive/hold BNB as part of the maintenance process.
@@ -61,12 +67,14 @@ contract StakeBitDiamond is Ownable {
         );
         if (!isStakerPresent[msg.sender]) {
             stakers.push(msg.sender);
+            //solhint-disable-next-line not-rely-on-time
+            stakedAt[msg.sender] = block.timestamp;
         }
         stakeOf[msg.sender] += stakeAmount;
-        //solhint-disable-next-line not-rely-on-time
-        stakedAt[msg.sender] = block.timestamp;
         totalBTDMDStaked += stakeAmount;
+        updateStakeBalLastXDays(msg.sender, stakeOf[msg.sender]);
         BTDMDContract.transferFrom(msg.sender, address(this), stakeAmount);
+        emit Stake(msg.sender, stakeAmount, stakedAt[msg.sender]);
     }
 
     /**
@@ -75,20 +83,27 @@ contract StakeBitDiamond is Ownable {
      * Requirements:
      * - Caller cannot be the zero address
      * - Caller's staked BTDMD must be greater than 0
+     * - Unstake amount must be less than or equal to the staked BTDMD
      * - Contract's BTDMD balance must be greater than staked BTDMD
      */
-    function unStakeBTDMD() public {
+    function unStakeBTDMD(uint256 unstakeAmount) public {
         require(msg.sender != address(0), "Caller cannot be zero address");
         uint256 stakedBTDMD = stakeOf[msg.sender];
         require(stakedBTDMD > 0, "No Stakes");
+        require(unstakeAmount <= stakedBTDMD, "Unstake amt > staked amt");
         require(
-            BTDMDContract.balanceOf(address(this)) >= stakedBTDMD,
+            BTDMDContract.balanceOf(address(this)) >= unstakeAmount,
             "Contract balance < staked BTDMD"
         );
-        stakeOf[msg.sender] = 0;
-        stakedAt[msg.sender] = 0;
-        totalBTDMDStaked -= stakedBTDMD;
+        stakeOf[msg.sender] -= unstakeAmount;
+        if (stakeOf[msg.sender] == 0) {
+            stakedAt[msg.sender] = 0;
+        }
+        totalBTDMDStaked -= unstakeAmount;
+        updateStakeBalLastXDays(msg.sender, stakeOf[msg.sender]);
         BTDMDContract.transfer(msg.sender, stakedBTDMD);
+        //solhint-disable-next-line not-rely-on-time
+        emit UnStake(msg.sender, unstakeAmount, block.timestamp);
     }
 
     /**
@@ -100,8 +115,7 @@ contract StakeBitDiamond is Ownable {
         returns (uint256 stakedBTDMD, uint256 daysStakedFor)
     {
         stakedBTDMD = stakeOf[msg.sender];
-        //solhint-disable-next-line not-rely-on-time
-        daysStakedFor = (block.timestamp - stakedAt[msg.sender]) / 1 days;
+        daysStakedFor = stakedDays(msg.sender);
     }
 
     /**
@@ -113,16 +127,45 @@ contract StakeBitDiamond is Ownable {
         returns (
             address[] memory wallets,
             uint256[] memory stakedBTDMD,
-            uint256[] memory daysStakedFor
+            uint256[] memory daysStakedFor,
+            uint256[] memory minBalForLastOneWeek,
+            uint256[] memory minBalForLastTwoWeeks,
+            uint256[] memory minBalForLastThreeWeeks
         )
     {
         address staker;
         for (uint256 i = 0; i < stakers.length; i++) {
             staker = stakers[i];
             stakedBTDMD[i] = stakeOf[staker];
-            //solhint-disable-next-line not-rely-on-time
-            daysStakedFor[i] = (block.timestamp - stakedAt[staker]) / 1 days;
+            daysStakedFor[i] = stakedDays(staker);
             wallets[i] = staker;
+            minBalForLastOneWeek[i] = stakeAmountForLastOneWeek[staker];
+            minBalForLastTwoWeeks[i] = stakeAmountForLastTwoWeeks[staker];
+            minBalForLastThreeWeeks[i] = stakeAmountForLastThreeWeeks[staker];
         }
+    }
+
+    /**
+     * @dev Updates the stake amount for last one week, two weeks & three weeks
+     */
+    function updateStakeBalLastXDays(address caller, uint256 updatedStakeAmt)
+        internal
+    {
+        uint256 noOfDays = stakedDays(caller);
+        if (noOfDays <= 7) {
+            stakeAmountForLastOneWeek[caller] = updatedStakeAmt;
+        } else if (noOfDays > 7 && noOfDays <= 14) {
+            stakeAmountForLastTwoWeeks[caller] = updatedStakeAmt;
+        } else {
+            stakeAmountForLastThreeWeeks[caller] = updatedStakeAmt;
+        }
+    }
+
+    /**
+     * @dev Returns the number of days for which BTDMD was staked
+     */
+    function stakedDays(address caller) internal view returns (uint256) {
+        //solhint-disable-next-line not-rely-on-time
+        return (block.timestamp - stakedAt[caller]) / 1 days;
     }
 }
