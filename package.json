@@ -12,12 +12,13 @@
     "migrate": "clear && truffle migrate",
     "migrateAll": "clear && truffle migrate --reset",
     "recompile": "clear && npm run cleanSol && truffle compile --all && npm run lint",
-    "test": "clear && truffle test"
+    "test": "clear && truffle --network development test"
   },
   "author": "Balaji Shetty Pachai <balaji.pachai08@gmail.com>",
   "dependencies": {
     "@truffle/hdwallet-provider": "^1.4.0",
     "bignumber.js": "^9.0.1",
+    "eth-gas-reporter": "^0.2.22",
     "fix": "0.0.6",
     "openzeppelin-solidity": "^4.1.0",
     "solhint": "^3.3.4",

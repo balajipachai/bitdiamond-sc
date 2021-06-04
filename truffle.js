@@ -13,13 +13,9 @@ module.exports = {
     ],
     networks: {
         development: {
-            name: "development",
-            protocol: "http",
             host: "127.0.0.1",
-            port: 7545,
+            port: 8545,
             network_id: "5777",
-            gas: 6721975,
-            gasPrice: 1,
         },
         mainnet: {
             name: "mainnet",
@@ -63,7 +59,8 @@ module.exports = {
         },
     },
     mocha: {
-        useColors: true
+        useColors: true,
+        reporter: "eth-gas-reporter",
     },
     compilers: {
         solc: {

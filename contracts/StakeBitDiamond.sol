@@ -59,7 +59,7 @@ contract StakeBitDiamond is Ownable {
      */
     function stakeBTDMD(uint256 stakeAmount) public {
         require(msg.sender != address(0), "Caller cannot be zero address");
-        require(stakeAmount > 0, "Stake amount less than 0");
+        require(stakeAmount > 0, "Stake amount must be > 0");
         uint256 stakerBTDMDBalance = BTDMDContract.balanceOf(msg.sender);
         require(
             stakerBTDMDBalance >= stakeAmount,
@@ -69,12 +69,14 @@ contract StakeBitDiamond is Ownable {
             stakers.push(msg.sender);
             //solhint-disable-next-line not-rely-on-time
             stakedAt[msg.sender] = block.timestamp;
+            isStakerPresent[msg.sender] = true;
         }
-        stakeOf[msg.sender] += stakeAmount;
-        totalBTDMDStaked += stakeAmount;
-        updateStakeBalLastXDays(msg.sender, stakeOf[msg.sender]);
         BTDMDContract.transferFrom(msg.sender, address(this), stakeAmount);
-        emit Stake(msg.sender, stakeAmount, stakedAt[msg.sender]);
+        uint256 actualStakedAmt = BTDMDContract.balanceOf(msg.sender);
+        stakeOf[msg.sender] += actualStakedAmt;
+        totalBTDMDStaked += actualStakedAmt;
+        updateStakeBalLastXDays(msg.sender, stakeOf[msg.sender]);
+        emit Stake(msg.sender, actualStakedAmt, stakedAt[msg.sender]);
     }
 
     /**
@@ -88,6 +90,7 @@ contract StakeBitDiamond is Ownable {
      */
     function unStakeBTDMD(uint256 unstakeAmount) public {
         require(msg.sender != address(0), "Caller cannot be zero address");
+        require(unstakeAmount > 0, "UnStake amount must be > 0");
         uint256 stakedBTDMD = stakeOf[msg.sender];
         require(stakedBTDMD > 0, "No Stakes");
         require(unstakeAmount <= stakedBTDMD, "Unstake amt > staked amt");
@@ -95,15 +98,19 @@ contract StakeBitDiamond is Ownable {
             BTDMDContract.balanceOf(address(this)) >= unstakeAmount,
             "Contract balance < staked BTDMD"
         );
-        stakeOf[msg.sender] -= unstakeAmount;
+        BTDMDContract.transfer(msg.sender, unstakeAmount);
+        uint256 actualUnstakeAmt = BTDMDContract.balanceOf(msg.sender);
+        //solhint-disable-next-line reentrancy
+        stakeOf[msg.sender] -= actualUnstakeAmt;
         if (stakeOf[msg.sender] == 0) {
+            //solhint-disable-next-line reentrancy
             stakedAt[msg.sender] = 0;
         }
-        totalBTDMDStaked -= unstakeAmount;
+        //solhint-disable-next-line reentrancy
+        totalBTDMDStaked -= actualUnstakeAmt;
         updateStakeBalLastXDays(msg.sender, stakeOf[msg.sender]);
-        BTDMDContract.transfer(msg.sender, stakedBTDMD);
         //solhint-disable-next-line not-rely-on-time
-        emit UnStake(msg.sender, unstakeAmount, block.timestamp);
+        emit UnStake(msg.sender, actualUnstakeAmt, block.timestamp);
     }
 
     /**
@@ -125,24 +132,18 @@ contract StakeBitDiamond is Ownable {
         public
         view
         returns (
-            address[] memory wallets,
-            uint256[] memory stakedBTDMD,
-            uint256[] memory daysStakedFor,
-            uint256[] memory minBalForLastOneWeek,
-            uint256[] memory minBalForLastTwoWeeks,
-            uint256[] memory minBalForLastThreeWeeks
+            uint256 stakedBTDMD,
+            uint256 daysStakedFor,
+            uint256 minBalForLastOneWeek,
+            uint256 minBalForLastTwoWeeks,
+            uint256 minBalForLastThreeWeeks
         )
     {
-        address staker;
-        for (uint256 i = 0; i < stakers.length; i++) {
-            staker = stakers[i];
-            stakedBTDMD[i] = stakeOf[staker];
-            daysStakedFor[i] = stakedDays(staker);
-            wallets[i] = staker;
-            minBalForLastOneWeek[i] = stakeAmountForLastOneWeek[staker];
-            minBalForLastTwoWeeks[i] = stakeAmountForLastTwoWeeks[staker];
-            minBalForLastThreeWeeks[i] = stakeAmountForLastThreeWeeks[staker];
-        }
+        stakedBTDMD = stakeOf[msg.sender];
+        daysStakedFor = stakedDays(msg.sender);
+        minBalForLastOneWeek = stakeAmountForLastOneWeek[msg.sender];
+        minBalForLastTwoWeeks = stakeAmountForLastTwoWeeks[msg.sender];
+        minBalForLastThreeWeeks = stakeAmountForLastThreeWeeks[msg.sender];
     }
 
     /**
@@ -152,9 +153,9 @@ contract StakeBitDiamond is Ownable {
         internal
     {
         uint256 noOfDays = stakedDays(caller);
-        if (noOfDays <= 7) {
+        if (noOfDays < 7) {
             stakeAmountForLastOneWeek[caller] = updatedStakeAmt;
-        } else if (noOfDays > 7 && noOfDays <= 14) {
+        } else if (noOfDays >= 7 && noOfDays < 14) {
             stakeAmountForLastTwoWeeks[caller] = updatedStakeAmt;
         } else {
             stakeAmountForLastThreeWeeks[caller] = updatedStakeAmt;
