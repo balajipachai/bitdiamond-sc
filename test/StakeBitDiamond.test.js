@@ -65,48 +65,6 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                     )
                 })
             })
-
-            context('success', () => {
-                const BTDMD_TO_STAKE_CONTRACT = 100e8 // 1 BTDMD
-                let bal
-                before(async () => {
-                    /**
-                     * _rOwned[sender] = _rOwned[sender].sub(rAmount);
-                     * _rOwned[recipient] = _rOwned[recipient].add(rTransferAmount);
-                     * _reflectFee(rFee, tFee);
-                     * uint256 private _tax_fee = 400; => taxFee
-                     * uint256 tFee = ((tAmount.mul(taxFee)).div(_GRANULARITY)).div(100);
-                     * uint256 private constant _GRANULARITY = 100;
-                     * transferAmount = tAmount.sub(tFee)
-                     */
-                    await bitDiamondConInstance.methods.transfer(stakeBitDiamondConInstance.address, BTDMD_TO_STAKE_CONTRACT).send({ from: BTDMD_OWNER })
-                    await send.ether(nonOwner, BTDMD_OWNER, ether('95')) // This ensures coverage result do not fail
-                })
-                it('before transfer reflected tokens, should verify contract balance to be 9600001828 BTDMD', async () => {
-                    bal = await bitDiamondConInstance.methods.balanceOf(stakeBitDiamondConInstance.address).call()
-                    assert.equal(bal, 9600001828, "Balances do not match")
-                })
-
-                it('before transfer reflected tokens, should verify recipient balance to be 0 BTDMD', async () => {
-                    bal = await bitDiamondConInstance.methods.balanceOf(recipient).call()
-                    assert.equal(bal, 0, "Balances do not match")
-                })
-
-                it('should transfer reflected tokens, 9600001828 BTDMD to recipient', async () => {
-                    txObject = await stakeBitDiamondConInstance.transferReflectedTokensTo(recipient, { from: owner })
-                    assert.equal(txObject.receipt.status, true, "Transfer reflected tokens failed")
-                })
-
-                it('after transfer reflected tokens, should verify contract balance to be 0 BTDMD', async () => {
-                    bal = await bitDiamondConInstance.methods.balanceOf(stakeBitDiamondConInstance.address).call()
-                    assert.equal(bal, 0, "Balances do not match")
-                })
-
-                it('after transfer reflected tokens should verify recipient balance to be 9216003440 BTDMD', async () => {
-                    bal = await bitDiamondConInstance.methods.balanceOf(recipient).call()
-                    assert.equal(bal, 9216003440, "Balances do not match")
-                })
-            })
         })
 
         describe('stakeBTDMD', () => {
@@ -285,7 +243,7 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
         })
 
         describe('unStakeBTDMD', () => {
-            const UNSTAKE_AMOUNT = 10e8; // 10 BTDMD
+            const UNSTAKE_AMOUNT = 1e8; // 1 BTDMD
             context('reverts', () => {
                 it('when un stake amount is ZERO', async () => {
                     await expectRevert(
@@ -325,5 +283,36 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                 })
             })
         })
+
+        describe('transferReflectedTokensTo', () => {
+            context('success', () => {
+                let bal
+                it('before transfer reflected tokens, should verify contract balance to be > 0', async () => {
+                    bal = await stakeBitDiamondConInstance.reflectedTokensInContract.call();
+                    assert.equal(bal > 0, true, "Balances do not match")
+                })
+
+                it('before transfer reflected tokens, should verify recipient balance to be 0 BTDMD', async () => {
+                    bal = await bitDiamondConInstance.methods.balanceOf(recipient).call()
+                    assert.equal(bal, 0, "Balances do not match")
+                })
+
+                it('should transfer reflected tokens from contract to recipient', async () => {
+                    txObject = await stakeBitDiamondConInstance.transferReflectedTokensTo(recipient, { from: owner })
+                    assert.equal(txObject.receipt.status, true, "Transfer reflected tokens failed")
+                })
+
+                it('after transfer reflected tokens, should verify contract balance to be 0 BTDMD', async () => {
+                    bal = await stakeBitDiamondConInstance.reflectedTokensInContract.call();
+                    assert.equal(bal, 0, "Balances do not match")
+                })
+
+                it('after transfer reflected tokens should verify recipient BTDMD balance > 0', async () => {
+                    bal = await bitDiamondConInstance.methods.balanceOf(recipient).call()
+                    assert.equal(bal > 0, true, "Balances do not match")
+                })
+            })
+        })
+
     })
 })

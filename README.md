@@ -28,7 +28,7 @@ Execute from the root of the project:
 
 1. Launch ganache-cli by forking the binance smart chain as BTDMD is deployed on the Mainnet
 
-`ganache-cli -a 10 -m "modify exotic job rubber mask park ten gown puzzle diagram useful loud" -f "https://bsc-dataseed.binance.org/" --unlock 0xd34355e34f48580155a22557332b031421742d --networkId 5777`
+`ganache-cli -a 10 -m "modify exotic job rubber mask park ten gown puzzle diagram useful loud" -f "https://bsc-dataseed.binance.org/" --unlock 0xd34355e34f48580155a22557332b031421742d14 --networkId 5777`
 
 2. Run the tests
 

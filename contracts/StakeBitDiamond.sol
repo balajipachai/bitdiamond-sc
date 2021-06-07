@@ -21,6 +21,11 @@ contract StakeBitDiamond is Ownable {
     mapping(address => uint256) public stakeAmountForLastThreeWeeks;
 
     uint256 public totalBTDMDStaked;
+    uint256 public reflectedTokensInContract;
+
+    // Constant Values from BTDMD Contract
+    uint256 private constant TAX_FEE = 400;
+    uint256 private constant GRANULARITY = 100;
 
     event Stake(address indexed staker, uint256 amount, uint256 stakedAt);
     event UnStake(address indexed unStaker, uint256 amount, uint256 unStakedAt);
@@ -44,9 +49,8 @@ contract StakeBitDiamond is Ownable {
      * - Can only be invoked by owner of the contract
      */
     function transferReflectedTokensTo(address recipient) public onlyOwner {
-        uint256 reflectedTokenBalance = BTDMDContract.balanceOf(address(this));
-        require(reflectedTokenBalance > 0, "BTDMD balance is 0");
-        BTDMDContract.transfer(recipient, reflectedTokenBalance);
+        require(reflectedTokensInContract > 0, "BTDMD balance is 0");
+        BTDMDContract.transfer(recipient, reflectedTokensInContract);
     }
 
     /**
@@ -72,7 +76,13 @@ contract StakeBitDiamond is Ownable {
             isStakerPresent[msg.sender] = true;
         }
         BTDMDContract.transferFrom(msg.sender, address(this), stakeAmount);
-        uint256 actualStakedAmt = BTDMDContract.balanceOf(msg.sender);
+        uint256 stakedAmtPlusReflectedTokens =
+            BTDMDContract.balanceOf(msg.sender);
+        uint256 actualStakedAmt = stakeAmount - getTransactionFee(stakeAmount);
+        uint256 reflectedTokens =
+            stakedAmtPlusReflectedTokens - actualStakedAmt;
+
+        reflectedTokensInContract += reflectedTokens;
         stakeOf[msg.sender] += actualStakedAmt;
         totalBTDMDStaked += actualStakedAmt;
         updateStakeBalLastXDays(msg.sender, stakeOf[msg.sender]);
@@ -168,5 +178,16 @@ contract StakeBitDiamond is Ownable {
     function stakedDays(address caller) internal view returns (uint256) {
         //solhint-disable-next-line not-rely-on-time
         return (block.timestamp - stakedAt[caller]) / 1 days;
+    }
+
+    /**
+     * @dev Returns transaction fee
+     */
+    function getTransactionFee(uint256 tAmount)
+        internal
+        pure
+        returns (uint256)
+    {
+        return (((tAmount * TAX_FEE) / GRANULARITY) / 100);
     }
 }
