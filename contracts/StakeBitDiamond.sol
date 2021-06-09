@@ -75,13 +75,23 @@ contract StakeBitDiamond is Ownable {
             stakedAt[msg.sender] = block.timestamp;
             isStakerPresent[msg.sender] = true;
         }
-        BTDMDContract.transferFrom(msg.sender, address(this), stakeAmount);
-        uint256 stakedAmtPlusReflectedTokens =
-            BTDMDContract.balanceOf(msg.sender);
-        uint256 actualStakedAmt = stakeAmount - getTransactionFee(stakeAmount);
-        uint256 reflectedTokens =
-            stakedAmtPlusReflectedTokens - actualStakedAmt;
 
+        uint256 contractPreviousBalance =
+            BTDMDContract.balanceOf(address(this));
+        BTDMDContract.transferFrom(msg.sender, address(this), stakeAmount);
+        uint256 actualStakedAmt = stakeAmount - getTransactionFee(stakeAmount);
+        uint256 reflectedTokens;
+
+        if (contractPreviousBalance == 0) {
+            reflectedTokens =
+                BTDMDContract.balanceOf(address(this)) -
+                actualStakedAmt;
+        } else {
+            reflectedTokens =
+                BTDMDContract.balanceOf(address(this)) -
+                contractPreviousBalance -
+                actualStakedAmt;
+        }
         reflectedTokensInContract += reflectedTokens;
         stakeOf[msg.sender] += actualStakedAmt;
         totalBTDMDStaked += actualStakedAmt;
@@ -109,7 +119,8 @@ contract StakeBitDiamond is Ownable {
             "Contract balance < staked BTDMD"
         );
         BTDMDContract.transfer(msg.sender, unstakeAmount);
-        uint256 actualUnstakeAmt = BTDMDContract.balanceOf(msg.sender);
+        uint256 actualUnstakeAmt =
+            unstakeAmount - getTransactionFee(unstakeAmount);
         //solhint-disable-next-line reentrancy
         stakeOf[msg.sender] -= actualUnstakeAmt;
         if (stakeOf[msg.sender] == 0) {

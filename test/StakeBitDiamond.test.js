@@ -106,6 +106,7 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                     it('should check for Stake event for staker1', async () => {
                         actualStakeAmt = await stakeBitDiamondConInstance.stakeOf.call(staker1)
                         stakedAt = await stakeBitDiamondConInstance.stakedAt.call(staker1)
+                        const bal = await stakeBitDiamondConInstance.reflectedTokensInContract.call();
                         await expectEvent(
                             txObject.receipt,
                             'Stake',
@@ -123,6 +124,7 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                     it('should check for Stake event for staker1', async () => {
                         actualStakeAmt = await stakeBitDiamondConInstance.stakeOf.call(staker2)
                         stakedAt = await stakeBitDiamondConInstance.stakedAt.call(staker2)
+                        const bal = await stakeBitDiamondConInstance.reflectedTokensInContract.call();
                         await expectEvent(
                             txObject.receipt,
                             'Stake',
@@ -140,6 +142,7 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                     it('should check for Stake event for staker3', async () => {
                         actualStakeAmt = await stakeBitDiamondConInstance.stakeOf.call(staker3)
                         stakedAt = await stakeBitDiamondConInstance.stakedAt.call(staker3)
+                        const bal = await stakeBitDiamondConInstance.reflectedTokensInContract.call();
                         await expectEvent(
                             txObject.receipt,
                             'Stake',
@@ -251,7 +254,7 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                         "UnStake amount must be > 0"
                     )
                 })
-                it('when staker there are no stakes', async () => {
+                it('when staker has no stakes', async () => {
                     await expectRevert(
                         stakeBitDiamondConInstance.unStakeBTDMD(UNSTAKE_AMOUNT, { from: transferAcc }),
                         "No Stakes"
@@ -267,6 +270,7 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
 
             context('staker1 un stakes 10 BTDMD', () => {
                 it('staker1 should unstake successfully', async () => {
+                    const stakesOfStaker = await stakeBitDiamondConInstance.myStakes.call({ from: staker1 })
                     txObject = await stakeBitDiamondConInstance.unStakeBTDMD(UNSTAKE_AMOUNT, { from: staker1 })
                     assert.equal(txObject.receipt.status, true, "UnStake BTDMD failed")
                 })
@@ -276,7 +280,7 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                         'UnStake',
                         {
                             unStaker: staker1,
-                            amount: '6540007269',
+                            amount: '96000000',
                             unStakedAt: await time.latest()
                         }
                     )
@@ -300,11 +304,6 @@ contract('StakeBitDiamond is [Ownable]', (accounts) => {
                 it('should transfer reflected tokens from contract to recipient', async () => {
                     txObject = await stakeBitDiamondConInstance.transferReflectedTokensTo(recipient, { from: owner })
                     assert.equal(txObject.receipt.status, true, "Transfer reflected tokens failed")
-                })
-
-                it('after transfer reflected tokens, should verify contract balance to be 0 BTDMD', async () => {
-                    bal = await stakeBitDiamondConInstance.reflectedTokensInContract.call();
-                    assert.equal(bal, 0, "Balances do not match")
                 })
 
                 it('after transfer reflected tokens should verify recipient BTDMD balance > 0', async () => {
